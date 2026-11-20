@@ -95,8 +95,8 @@ alongside v1.
 ## Install
 
 ```bash
-uv add "sermon-core @ git+https://github.com/lawwu/sermon-core@v0.1.0"
-uv add "sermon-core[ingest] @ git+https://github.com/lawwu/sermon-core@v0.1.0"  # to transcribe
+uv add "sermon-core @ git+https://github.com/lawwu/sermon-core@v0.2.0"
+uv add "sermon-core[ingest] @ git+https://github.com/lawwu/sermon-core@v0.2.0"  # to transcribe
 ```
 
 ## Develop
