@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/lawwu/sermon-core/schema/sermon-record.v1.json",
+  "title": "Sermon record v1",
+  "description": "One recording of one church: where it came from (source, from yt-dlp, never hand-edited), its transcript, what people decided about it (curated, never overwritten by tools), and what tools derived (generated, rewritten on every run). Within major version 1 changes are additive only: a record valid under 1.0 stays valid under every 1.x.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "church", "platform", "url", "source"],
+  "properties": {
+    "schema_version": {
+      "description": "MAJOR.MINOR of the schema the producer wrote. Readers accept any 1.x up to the minor they know.",
+      "type": "string",
+      "pattern": "^1\\.(0|[1-9][0-9]*)$"
+    },
+    "id": {
+      "description": "The platform's video id (YouTube id, Vimeo number). Also the transcript's file stem.",
+      "type": "string",
+      "minLength": 1
+    },
+    "church": {"$ref": "#/$defs/slug", "description": "The church's slug, e.g. berean, beacon."},
+    "platform": {"enum": ["youtube", "vimeo"]},
+    "url": {"type": "string", "pattern": "^https?://"},
+
+    "source": {
+      "description": "Copied from the yt-dlp metadata cache. Tools refresh it; people never edit it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "upload_date"],
+      "properties": {
+        "title": {"type": "string"},
+        "upload_date": {"$ref": "#/$defs/date", "description": "ISO date (yt-dlp's YYYYMMDD reformatted)."},
+        "duration_s": {"type": ["integer", "null"], "minimum": 0},
+        "thumbnail": {"type": ["string", "null"]},
+        "chapters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["start_s", "title"],
+            "properties": {
+              "start_s": {"type": "number", "minimum": 0},
+              "end_s": {"type": ["number", "null"], "minimum": 0},
+              "title": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+
+    "transcript": {
+      "description": "The transcript file, or null when there is none yet.",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["path", "format"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1, "description": "Relative to the church's data directory, e.g. transcripts/<id>.txt."},
+        "format": {"const": "whisper", "description": "Segment lines: `[hh:mm:ss.mmm --> hh:mm:ss.mmm]   text`."},
+        "engine": {
+          "description": "parakeet_v3 and wcpp_mc0 passed the yield gate; low_yield is a kept but suspect transcript; failed produced no text. Null when not recorded.",
+          "enum": ["parakeet_v3", "wcpp_mc0", "low_yield", "failed", null]
+        },
+        "transcribed_at": {"type": ["string", "null"], "format": "date-time"}
+      }
+    },
+
+    "curated": {
+      "description": "Edited by people and never overwritten by tools. A field that is absent or null means 'not curated'; tools fall back to source or generated.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": {"type": ["string", "null"], "description": "Replaces the title shown."},
+        "speaker": {"type": ["string", "null"]},
+        "series": {"oneOf": [{"$ref": "#/$defs/slug"}, {"type": "null"}], "description": "A series slug; overrides the series rules."},
+        "passages": {"$ref": "#/$defs/passages", "description": "Replaces the passages parsed from the title."},
+        "summary": {"type": ["string", "null"]},
+        "published": {"type": "boolean", "default": true, "description": "false hides the recording from the site."},
+        "duplicate_of": {"type": ["string", "null"], "minLength": 1, "description": "Id of the recording this one duplicates (re-upload, second stream); the duplicate is not shown."}
+      }
+    },
+
+    "generated": {
+      "description": "Derived by tools and rewritten on every run; hand edits are lost.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {"enum": ["sunday", "bible_study", "event", "other", null]},
+        "series": {"oneOf": [{"$ref": "#/$defs/slug"}, {"type": "null"}], "description": "From the church's series rules."},
+        "passages": {"$ref": "#/$defs/passages", "description": "Parsed from the title."},
+        "verses": {
+          "description": "References found in the transcript, first mention first.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["ref", "t", "source", "mentions"],
+            "properties": {
+              "ref": {"$ref": "#/$defs/passage"},
+              "t": {"type": "number", "minimum": 0, "description": "Seconds into the recording of the first mention."},
+              "source": {"enum": ["transcript"]},
+              "mentions": {"type": "integer", "minimum": 1}
+            }
+          }
+        }
+      }
+    }
+  },
+
+  "$defs": {
+    "slug": {"type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"},
+    "date": {"type": "string", "format": "date", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+    "passage": {
+      "description": "One Bible reference such as 'Luke 17:31-37' or '1 John 2'. The pattern checks shape only; sermon_core.record.validate also checks the book exists and the chapter is in range.",
+      "type": "string",
+      "pattern": "^([1-3] )?[A-Za-z][A-Za-z. ]*[A-Za-z.] [0-9]{1,3}([:.][0-9]{1,3}( ?[-–] ?[0-9]{1,3})?)?$"
+    },
+    "passages": {"type": "array", "items": {"$ref": "#/$defs/passage"}}
+  }
+}
