@@ -1,0 +1,31 @@
+# Berean recording. Edit `curated`; `berean sync` rewrites everything else.
+# curated.title replaces the recording's title; curated.series overrides the series rules;
+# curated.passages replaces the title passages;
+# curated.published: false hides the recording from the site.
+id: X9vaAsBiLVY
+title: Remember Lot's Wife Part 2 (Luke 17:31-37) | Pastor Peter Kim
+date: '2026-09-07'
+curated:
+  title: null
+  speaker: null
+  series: null
+  passages: []
+  summary: null
+  published: true
+generated:
+  series: sunday-luke
+  passages: ['Luke 17:31-37']
+  verses:
+  - {ref: Matthew 18, t: 1737.2, source: transcript, mentions: 1}
+  - {ref: 'Amos 5:18', t: 2427.6, source: transcript, mentions: 1}
+  - {ref: 'Matthew 5:18', t: 2935.5, source: transcript, mentions: 1}
+  - {ref: 'Hebrews 6:18', t: 2935.5, source: transcript, mentions: 1}
+  - {ref: Revelation 22, t: 2989.6, source: transcript, mentions: 1}
+  - {ref: '2 Timothy 4:3-4', t: 3049.8, source: transcript, mentions: 1}
+  - {ref: 'Judges 17:6', t: 3402.7, source: transcript, mentions: 1}
+  - {ref: 'Philippians 3:13-14', t: 3454.0, source: transcript, mentions: 1}
+  - {ref: '2 Peter 2:8', t: 3738.3, source: transcript, mentions: 1}
+  - {ref: 'Galatians 2:20', t: 3832.9, source: transcript, mentions: 1}
+  - {ref: 1 John 2, t: 3999.7, source: transcript, mentions: 1}
+  - {ref: 'Luke 17:34-36', t: 4688.5, source: transcript, mentions: 1}
+  - {ref: '1 Thessalonians 4:16-17', t: 4737.7, source: transcript, mentions: 1}

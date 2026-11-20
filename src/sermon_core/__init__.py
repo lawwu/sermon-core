@@ -8,6 +8,7 @@ The interface is what's exported here. Each site supplies its own output
 from .corpus import Corpus, load
 from .ingest import heal, ingest, ytdlp
 from .model import Sermon
+from .record import SermonRecord, validate as validate_record
 from .paragraphs import Paragraph
 from .scripture import (
     BOOK_ORDER,
@@ -29,6 +30,7 @@ __all__ = [
     "Reference",
     "ReferenceMatch",
     "Sermon",
+    "SermonRecord",
     "Source",
     "book_slug",
     "books_named",
@@ -38,5 +40,6 @@ __all__ = [
     "heal",
     "ingest",
     "load",
+    "validate_record",
     "ytdlp",
 ]
