@@ -1,0 +1,24 @@
+[project]
+name = "sermon-core"
+version = "0.1.0"
+description = "Ingest, transcribe, and load church sermon recordings: paragraphs, scripture references, series"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+# Transcription runs on Apple silicon (Parakeet on MLX); loading and parsing need neither.
+ingest = ["yt-dlp>=2025.1.1", "parakeet-mlx>=0.3"]
+
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sermon_core"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
