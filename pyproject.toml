@@ -1,6 +1,6 @@
 [project]
 name = "sermon-core"
-version = "0.2.1"
+version = "0.2.2"
 description = "Ingest, transcribe, and load church sermon recordings: paragraphs, scripture references, series"
 readme = "README.md"
 requires-python = ">=3.11"
