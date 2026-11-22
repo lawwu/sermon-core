@@ -24,6 +24,14 @@ CHUNK_SECONDS = 300.0   # long chunks: fewer seams, fewer dropped repeats
 OVERLAP_SECONDS = 30.0
 MIN_BYTES_PER_SEC = 5.0  # healthy sermons yield ~15-35 bytes/sec of audio
 
+# MLX keeps freed GPU buffers in a cache for reuse and, by default, lets that
+# cache grow very large without giving it back: a ~400-sermon backfill ended
+# up holding 49 GB on a 64 GB Mac, deep into swap. Measured on a 13-minute
+# file (Apple silicon, 64 GB): uncapped, one file left 11.7 GB cached and four
+# files 14.3 GB; a 2 GB cap ran at the same speed; a 0 GB cap at half speed.
+# So: cap the cache at 2 GB, and empty it after every file.
+MLX_CACHE_LIMIT_BYTES = 2 * 1024**3
+
 _MODEL = None
 
 
@@ -42,19 +50,31 @@ def yield_ok(text: str, duration_seconds: float) -> bool:
     return len(text.encode()) / duration_seconds >= MIN_BYTES_PER_SEC
 
 
+def _mlx_memory_fn(name: str):
+    """Current mlx has these at mx.*; older releases only under mx.metal.*."""
+    import mlx.core as mx
+
+    return getattr(mx, name, None) or getattr(mx.metal, name)
+
+
 def _parakeet():
     global _MODEL
     if _MODEL is None:
         from parakeet_mlx import from_pretrained
 
+        _mlx_memory_fn("set_cache_limit")(MLX_CACHE_LIMIT_BYTES)
         _MODEL = from_pretrained("mlx-community/parakeet-tdt-0.6b-v3")
     return _MODEL
 
 
 def transcribe_parakeet(wav: Path) -> str:
-    result = _parakeet().transcribe(
-        str(wav), chunk_duration=CHUNK_SECONDS, overlap_duration=OVERLAP_SECONDS
-    )
+    model = _parakeet()
+    try:
+        result = model.transcribe(
+            str(wav), chunk_duration=CHUNK_SECONDS, overlap_duration=OVERLAP_SECONDS
+        )
+    finally:
+        _mlx_memory_fn("clear_cache")()
     lines = [
         f"[{hms(s.start)} --> {hms(s.end)}]   {s.text.strip()}"
         for s in result.sentences
