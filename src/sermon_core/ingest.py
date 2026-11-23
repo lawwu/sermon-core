@@ -21,12 +21,23 @@ from .transcribe import transcribe
 FFMPEG = shutil.which("ffmpeg") or "/opt/homebrew/bin/ffmpeg"
 CACHE_FIELDS = ("id", "title", "upload_date", "duration", "thumbnail", "webpage_url")
 
+# yt-dlp live_status values for a stream YouTube is not done with. A
+# `post_live` stream (ended, still processing) serves its audio only as
+# thousands of small DASH fragments: a 71-minute sermon came down at ~14 KB/s
+# and hit the 30-minute download timeout, while a processed (`was_live`)
+# stream of the same length downloads in seconds. Skip these; the next run
+# gets them.
+NOT_READY = frozenset({"is_upcoming", "is_live", "post_live"})
+
 
 def ytdlp(*args: str, timeout: int = 1800) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        [sys.executable, "-m", "yt_dlp", *args],
-        capture_output=True, text=True, timeout=timeout,
-    )
+    """Run yt-dlp. A timeout comes back as a failed run, not an exception,
+    so one slow video can't abort a whole ingest."""
+    cmd = [sys.executable, "-m", "yt_dlp", *args]
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return subprocess.CompletedProcess(cmd, 124, "", f"yt-dlp timed out after {timeout}s")
 
 
 def discover(channel_url: str) -> list[dict]:
@@ -52,11 +63,12 @@ def discover(channel_url: str) -> list[dict]:
 
 
 def fetch_metadata(video_url: str) -> dict | None:
+    """The cached fields, plus `live_status` (not cached; ingest pops it)."""
     proc = ytdlp("--no-download", "-J", video_url, timeout=120)
     if proc.returncode != 0:
         return None
     info = json.loads(proc.stdout)
-    return {k: info.get(k) for k in CACHE_FIELDS}
+    return {**{k: info.get(k) for k in CACHE_FIELDS}, "live_status": info.get("live_status")}
 
 
 def download_wav16k(video_url: str, work_dir: Path) -> Path | None:
@@ -69,11 +81,14 @@ def download_wav16k(video_url: str, work_dir: Path) -> Path | None:
     if not files:
         return None
     wav = work_dir / "audio16k.wav"
-    conv = subprocess.run(
-        [FFMPEG, "-hide_banner", "-loglevel", "error", "-y", "-i", str(files[0]),
-         "-ar", "16000", "-ac", "1", str(wav)],
-        capture_output=True, text=True, timeout=1800,
-    )
+    try:
+        conv = subprocess.run(
+            [FFMPEG, "-hide_banner", "-loglevel", "error", "-y", "-i", str(files[0]),
+             "-ar", "16000", "-ac", "1", str(wav)],
+            capture_output=True, text=True, timeout=1800,
+        )
+    except subprocess.TimeoutExpired:
+        return None
     return wav if conv.returncode == 0 and wav.exists() else None
 
 
@@ -162,7 +177,7 @@ def ingest(config: Source, limit: int | None = None, min_minutes: float = 15.0) 
     entries = discover(config.youtube_channel)
     print(f"{config.name}: {len(entries)} videos on channel", flush=True)
 
-    done = skipped_short = failed = 0
+    done = skipped_short = failed = not_ready = 0
     for entry in entries:
         if limit and done >= limit:
             break
@@ -183,6 +198,12 @@ def ingest(config: Source, limit: int | None = None, min_minutes: float = 15.0) 
         if not meta or not meta.get("upload_date"):
             failed += 1
             print(f"  {vid}: metadata failed", flush=True)
+            continue
+        meta = dict(meta)
+        live_status = meta.pop("live_status", None)
+        if live_status in NOT_READY:
+            not_ready += 1
+            print(f"  {vid}: {live_status} on YouTube, not ready yet; next run will retry", flush=True)
             continue
         duration = meta.get("duration") or flat_duration or 0
         if duration < min_minutes * 60:
@@ -210,6 +231,6 @@ def ingest(config: Source, limit: int | None = None, min_minutes: float = 15.0) 
               f"{len(text.encode())//1000}KB via {engine} in {secs:.0f}s", flush=True)
 
     summary = {"transcribed": done, "skipped_short": skipped_short, "failed": failed,
-               "total_in_cache": len(cache)}
+               "not_ready": not_ready, "total_in_cache": len(cache)}
     print(f"ingest complete: {summary}", flush=True)
     return summary
